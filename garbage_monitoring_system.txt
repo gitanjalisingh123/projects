@@ -1,0 +1,182 @@
+#define BLYNK_PRINT Serial    // Comment this out to disable prints and save space
+#include <ESP8266WiFi.h>  
+#include <WiFiClient.h>  
+#include <ThingSpeak.h> 
+#include <BlynkSimpleEsp8266.h> 
+
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "SONY--TV";
+char pass[] = "096357@tikone";
+
+WiFiClient client;  
+unsigned long myChannelNumber = 596677;  
+const char * myWriteAPIKey = "2OOFV4E1JGEP54WR"; 
+
+// You should get Auth Token in the Blynk App.
+// Go to the Project Settings (nut icon).
+char auth[] = "e2a032bb85d647878b3051d1240c50f8";
+
+// defines pins numbers
+const int trigPin = 2;  //D4
+const int echoPin = 0;  //D3
+const int sensor_pin = A0;  /* Connect Soil moisture analog sensor pin to A0 of NodeMCU */
+const int buzzer1 = 16; //D0
+const int buzzer2 = 4; //D2
+const int ledPin1 = 5; //D1
+const int ledPin2 = 14; //D5
+const int ledPin3 = 12; //D6
+const int ledPin4 = 13; //D7
+const int ledPin5 = 15; //D8
+const int ledPin6 = 10; //SD3
+
+
+// defines variables
+long duration;
+int distance;
+
+void setup() {
+pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+pinMode(echoPin, INPUT); // Sets the echoPin as an Input
+pinMode(buzzer1, OUTPUT); // buzz pin is output to control buzzering
+pinMode(buzzer2, OUTPUT); // buzz pin is output to control buzzering
+pinMode(ledPin1, OUTPUT); //initializing LED
+pinMode(ledPin2, OUTPUT); //initializing LED
+pinMode(ledPin3, OUTPUT); //initializing LED
+pinMode(ledPin4, OUTPUT); //initializing LED
+pinMode(ledPin5, OUTPUT); //initializing LED
+pinMode(ledPin6, OUTPUT); //initializing LED
+Serial.begin(9600); // Starts the serial communication
+// Connect to WiFi network  
+  Serial.println();  
+  Serial.println();  
+  Serial.print("Connecting to ");  
+  Serial.println(ssid);  
+  WiFi.begin(ssid, pass);  
+  while (WiFi.status() != WL_CONNECTED)
+   {  
+   delay(500);  
+   Serial.print(".");  
+  }  
+  Serial.println("");  
+  Serial.println("WiFi connected");  
+  // Print the IP address  
+  Serial.println(WiFi.localIP());  
+  ThingSpeak.begin(client);  
+  Blynk.begin(auth, ssid, pass);
+
+}
+
+void loop() {
+  Blynk.run();
+  
+// Clears the trigPin
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2000);
+
+// Sets the trigPin on HIGH state for 10 micro seconds
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(1000);
+digitalWrite(trigPin, LOW);
+
+// Reads the echoPin, returns the sound wave travel time in microseconds
+duration = pulseIn(echoPin, HIGH);
+
+// Calculating the distance
+distance= duration*0.034/2;
+// Prints the distance on the Serial Monitor
+Serial.print("Distance: ");
+Serial.println(distance);
+delay(2000);
+if(distance<=4)
+{
+Serial.println("Dry dustbin is FULL  ");
+Blynk.notify("Dry dustbin is getting full,time to collect it.");
+Blynk.email("tikonenikita7@gmail.com", "Subject: Garbage monitor", "Dry dustbin is getting full,collect it asap.");   // This Fn is used to send in the email , if motion is detected
+//send notification
+
+digitalWrite(buzzer1, HIGH);
+digitalWrite(ledPin1, HIGH);
+digitalWrite(ledPin2, LOW);
+digitalWrite(ledPin3, LOW);
+}
+else if(distance>4 && distance<=8)
+{
+  
+Serial.println("Dry dustbin is 50% FULL  ");
+digitalWrite(buzzer1, LOW);
+digitalWrite(ledPin2, HIGH);
+digitalWrite(ledPin1, LOW);
+digitalWrite(ledPin3, LOW);
+}
+else if(distance>8 && distance<=10)
+{
+Serial.println("Dry dustbin is 10% FULL ");
+digitalWrite(buzzer1, LOW);
+digitalWrite(ledPin3, HIGH);
+digitalWrite(ledPin1, LOW);
+digitalWrite(ledPin2, LOW);
+}
+else
+{
+Serial.println("Dry dustbin is EMPTY  ");
+digitalWrite(buzzer1, LOW);
+digitalWrite(ledPin1, LOW);
+digitalWrite(ledPin2, LOW);
+digitalWrite(ledPin3, LOW);
+}
+float moisture_percentage;
+
+  moisture_percentage = ( 100.00 - ( (analogRead(sensor_pin)/1023.00) * 100.00 ) );
+  Serial.print("Soil Moisture(in Percentage) = ");
+  Serial.print(moisture_percentage);
+  Serial.println("%");
+  delay(1000);
+
+ if(moisture_percentage>=30 && moisture_percentage<=90 )
+ {
+  
+  Serial.println("wet dustbin is FULL ");
+  Blynk.notify("Wet dustbin is getting full,time to collect it.");
+  Blynk.email("tikonenikita7@gmail.com", "Subject: Garbage monitor", "Wet dustbin is getting full,collect it asap.");   // This Fn is used to send in the email , if motion is detected
+//send notification
+
+  digitalWrite(buzzer2, HIGH);
+  digitalWrite(ledPin4, HIGH);
+  digitalWrite(ledPin5, LOW);
+  digitalWrite(ledPin6, LOW);
+ }
+else if(moisture_percentage>=20 && moisture_percentage<30)
+ {
+  
+  Serial.println("wet dustbin is 50% FULL   ");
+  digitalWrite(buzzer2, LOW);
+  digitalWrite(ledPin5, HIGH);
+  digitalWrite(ledPin4, LOW);
+  digitalWrite(ledPin6, LOW);
+ }
+else if(moisture_percentage>=10 && moisture_percentage<20)
+ {
+  
+  Serial.println("wet dustbin is 10% FULL  ");
+  digitalWrite(buzzer2, LOW);
+  digitalWrite(ledPin6, HIGH);
+  digitalWrite(ledPin4, LOW);
+  digitalWrite(ledPin5, LOW);
+ }
+ else 
+ {
+  
+  
+  Serial.println("wet dustbin is EMPTY  ");
+  digitalWrite(buzzer2, LOW);
+  digitalWrite(ledPin4, LOW);
+  digitalWrite(ledPin5, LOW);
+  digitalWrite(ledPin6, LOW);
+ }
+ 
+  ThingSpeak.writeField(myChannelNumber, 1, distance, myWriteAPIKey);
+  ThingSpeak.writeField(myChannelNumber, 2, moisture_percentage, myWriteAPIKey);
+  delay(100); // ThingSpeak will only accept updates every 15 seconds.
+}
+
